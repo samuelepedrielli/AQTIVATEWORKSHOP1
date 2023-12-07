@@ -184,10 +184,18 @@ call random_seed(put=seme)
 !--------------------------------------------!
 read(*,*) input
 open(40, file=input)
-read(40,*) L,Niter,Nskip,temp,Nrep,conf,phys,err
+read(40,*)
 
+L = 8
 N=L**2
 Neq=10000
+Niter = 1e4
+Nskip = 100
+temp = 2.
+Nrep = 5
+phys = "phys.txt"
+err = "err.txt"
+
 inquire(file=conf, exist=exist)
 inquire(file=phys, exist=exist)
   if (exist) then
