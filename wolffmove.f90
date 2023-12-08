@@ -1,4 +1,4 @@
-subroutine wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
+program wolffmove
 implicit none
 integer(kind=ik) :: dimclu
 integer(kind=ik) :: low,high,isite
@@ -49,4 +49,4 @@ enddo
 
 dimclu=high!the dimension of the cluster is the number of sites which belong to it
 
-end subroutine wolffmove
+end program wolffmove
