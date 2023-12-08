@@ -182,20 +182,24 @@ call random_seed(get=seme)
 call random_seed(put=seme)
 
 !--------------------------------------------!
+
 !read(*,*) input
 !open(40, file=input)
-!read(40,*)
+!read(40,*) temp
+!print*,temp
 
 L = 8
+temp = 0.89
 N=L**2
-Neq=1e4
-Niter = Neq
+Neq=10000
+Niter = 1e4
 Nskip = 100
-temp = 2.
+!temp = 2.
 Nrep = 5
 phys = "phys.txt"
 err = "err.txt"
 
+inquire(file=conf, exist=exist)
 inquire(file=phys, exist=exist)
   if (exist) then
     open(21, file=phys, status="old", position="append", action="write")
@@ -217,8 +221,8 @@ allocate (cluster(N))
 
 call neighbors(ivic)
 
-print*,'------ XY MODEL ------'
-print*,'------ Temp = ', temp,'------'
+!print*,'------ XY MODEL ------'
+!print*,'------ Temp = ', temp,'------'
 
 Emedio=0.0_rk !energy
 E2medio=0.0_rk
@@ -243,7 +247,7 @@ errGmedio=0.0_rk
 errBmedio=0.0_rk
 
 do jj=1,Nrep !begin statistical loop
- print*,'------ Stat = ', jj,'------'
+! print*,'------ Stat = ', jj,'------'
 
 do k=1,N !initialize the ordered configuration
  call random_number(r)!pick a random angle
@@ -282,11 +286,11 @@ enddo
  enddo
 
  do ii=1,Niter !steps loop
-  if (mod(ii,50)==1_ik) print*,ii 
+ ! if (mod(ii,50)==1_ik) print*,ii 
   do j=1,Nskip !decorrelation loop
    call wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
-  enddo !end decorr. loop
-  call wolffmove(iconf,ivic,temp,cid,cluster,dimclu) 
+  enddo
+  call wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
   dimclumedio=dimclumedio+dimclu
   dimclu2medio=dimclu2medio+dimclu**2
   icount=icount+1_ik
@@ -321,6 +325,9 @@ enddo
  sommaM=sommaM/icount !this is the <M> for one simulation
  sommaM2=sommaM2/icount
  sommaM4=sommaM4/icount
+ 
+ !print*, jj, 'energy', sommaE, errE
+ !print*, jj, 'mag', sommaM, errM
 
  sommaS=sommaS/icount !this is the <s2> for one simulation
  sommaS2=sommaS2/icount
