@@ -182,21 +182,20 @@ call random_seed(get=seme)
 call random_seed(put=seme)
 
 !--------------------------------------------!
-read(*,*) input
-open(40, file=input)
-read(40,*)
+!read(*,*) input
+!open(40, file=input)
+!read(40,*)
 
 L = 8
 N=L**2
-Neq=10000
-Niter = 1e4
+Neq=1e4
+Niter = Neq
 Nskip = 100
 temp = 2.
 Nrep = 5
 phys = "phys.txt"
 err = "err.txt"
 
-inquire(file=conf, exist=exist)
 inquire(file=phys, exist=exist)
   if (exist) then
     open(21, file=phys, status="old", position="append", action="write")
@@ -286,8 +285,8 @@ enddo
   if (mod(ii,50)==1_ik) print*,ii 
   do j=1,Nskip !decorrelation loop
    call wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
-  enddo
-  call wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
+  enddo !end decorr. loop
+  call wolffmove(iconf,ivic,temp,cid,cluster,dimclu) 
   dimclumedio=dimclumedio+dimclu
   dimclu2medio=dimclu2medio+dimclu**2
   icount=icount+1_ik
@@ -322,9 +321,6 @@ enddo
  sommaM=sommaM/icount !this is the <M> for one simulation
  sommaM2=sommaM2/icount
  sommaM4=sommaM4/icount
- 
- print*, jj, 'energy', sommaE, errE
- print*, jj, 'mag', sommaM, errM
 
  sommaS=sommaS/icount !this is the <s2> for one simulation
  sommaS2=sommaS2/icount
