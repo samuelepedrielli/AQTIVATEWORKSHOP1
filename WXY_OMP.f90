@@ -67,7 +67,7 @@ high=1_ik !counts the number of sites in the cluster
 do while(low.lt.high) !while the lower bound is less than the higher bound
  isite=cluster(low+1_ik)!take the starting site from the cluster
  do j=1,4
-  ipsip=ivic(isite,j)!go through the neighbors of the selected spine
+  ipsip=ivic(isite,j)!go through the neighbors of the selected site
   if(cid(ipsip)==0_ik) then !check that the neighbour has not been asked yet
    dot1=cos(phi)*cos(iconf(isite))+sin(phi)*sin(iconf(isite))
    dot2=cos(phi)*cos(iconf(ipsip))+sin(phi)*sin(iconf(ipsip))
@@ -152,7 +152,7 @@ use xymodule
 use omp_lib
 implicit none
 integer :: sizer
-integer(kind=ik) :: Nrep,Niter,Neq,Nskip,Ninit,Ntemp,icount
+integer(kind=ik) :: Nrep,Niter,Neq,Nskip,Ninit,Ntemp,icount,t1,t2,rate
 integer(kind=ik) :: i,ii,j,jj,k,kk
 integer(kind=ik) :: dimclu,dimclu2
 real(kind=rk) r,t_i,t_f
@@ -170,10 +170,11 @@ real(kind=rk) :: temp
 integer, dimension(:), allocatable :: seme
 integer(kind=ik), dimension(:,:), allocatable :: ivic
 integer(kind=ik), dimension(:), allocatable :: cid
-real(kind=rk), dimension(:), allocatable :: cluster,iconf
+real(kind=rk), dimension(:), allocatable :: cluster,iconf,initial
 character (len = 15) :: conf,phys,err,input
 logical :: exist
 
+call system_clock(count_rate=rate)
 call random_seed(sizer)
 allocate(seme(sizer))
 do i = 1,sizer
@@ -192,8 +193,8 @@ call random_seed(put=seme)
 L = 8
 temp = 2.0
 N=L**2
-Neq=10000
-Niter = 10000
+Neq=1e4
+Niter=Neq
 Nskip = 100
 !temp = 2.
 Nrep = 10
@@ -214,13 +215,12 @@ inquire(file=err, exist=exist)
     open(22, file=err, status="new", action="write")
   end if
 
+
+!--------------------------------------------!
 allocate (iconf(N))
 allocate (ivic(N,4))
 allocate (cid(N))
 allocate (cluster(N))
-!--------------------------------------------!
-
-call neighbors(ivic)
 
 !print*,'------ XY MODEL ------'
 !print*,'------ Temp = ', temp,'------'
@@ -247,25 +247,27 @@ errChimedio=0.0_rk
 errGmedio=0.0_rk
 errBmedio=0.0_rk
 
-!$OMP PARALLEL DO PRIVATE(jj) REDUCTION(+:somma1E, somma1E2, somma1M, somma1M2, somma1M4, somma1S, somma1S2)
+call system_clock(t1)
+!$OMP PARALLEL DO PRIVATE(jj,iconf,ivic,cid,cluster) REDUCTION(+:somma1E, somma1E2, somma1M, somma1M2, somma1M4, somma1S, somma1S2)
 do jj=1,Nrep !begin statistical loop
 ! print*,'------ Stat = ', jj,'------'
 
+call neighbors(ivic)
 do k=1,N !initialize the ordered configuration
  call random_number(r)!pick a random angle
  r=r*2*pi
  iconf(k)=r
 enddo
 
- sommaE=0.0_rk !energy
- sommaE2=0.0_rk
+ somma1E=0.0_rk !energy
+ somma1E2=0.0_rk
 
- sommaM=0.0_rk !magnetization
- sommaM2=0.0_rk
- sommaM4=0.0_rk
+ somma1M=0.0_rk !magnetization
+ somma1M2=0.0_rk
+ somma1M4=0.0_rk
 
- sommaS=0.0_rk !helicity
- sommaS2=0.0_rk
+ somma1S=0.0_rk !helicity
+ somma1S2=0.0_rk
 
  varE=0.0_rk
  errE=0.0_rk
@@ -297,42 +299,42 @@ enddo
   dimclu2medio=dimclu2medio+dimclu**2
   icount=icount+1_ik
   call computeE(iconf,ivic,E,E2)
-  sommaE=sommaE+E
-  sommaE2=sommaE2+E2
+  somma1E=somma1E+E
+  somma1E2=somma1E2+E2
   call computeM(iconf,M,M2,M4)
-  sommaM=sommaM+M
-  sommaM2=sommaM2+M2
-  sommaM4=sommaM4+M4
+  somma1M=somma1M+M
+  somma1M2=somma1M2+M2
+  somma1M4=somma1M4+M4
   call computeS(iconf,ivic,S,S2)
-  sommaS=sommaS+S
-  sommaS2=sommaS2+S2
+  somma1S=somma1S+S
+  somma1S2=somma1S2+S2
  enddo !ends steps loop
 
- varE=sommaE2/icount-(sommaE/icount)**2
+ varE=somma1E2/icount-(somma1E/icount)**2
  errE=sqrt(varE/Nrep)
 
 ! Cv=N*varE/temp**2 !this is Cv for one configuration
 ! Cv2=Cv**2
 
- varM=sommaM2/icount-(sommaM/icount)**2
+ varM=somma1M2/icount-(somma1M/icount)**2
  errM=sqrt(varM/Nrep)
 
 
  !Chi=N*varM/temp !this is Chi for one configuration
  !Chi2=Chi**2
 
- somma1E=sommaE/icount !this is the <E> for one simulation
- somma1E2=sommaE2/icount
+ somma1E=somma1E/icount !this is the <E> for one simulation
+ somma1E2=somma1E2/icount
 
- somma1M=sommaM/icount !this is the <M> for one simulation
- somma1M2=sommaM2/icount
- somma1M4=sommaM4/icount
+ somma1M=somma1M/icount !this is the <M> for one simulation
+ somma1M2=somma1M2/icount
+ somma1M4=somma1M4/icount
  
- print*, jj, 'energy', somma1E, errE
+ !print*, jj, 'energy', somma1E, errE
  !print*, jj, 'mag', sommaM, errM
 
- somma1S=sommaS/icount !this is the <s2> for one simulation
- somma1S2=sommaS2/icount
+ somma1S=somma1S/icount !this is the <s2> for one simulation
+ somma1S2=somma1S2/icount
 
  !G=-(sommaE/2.+N*sommaS/temp) !this is G for one simulation
  !G2=G**2
@@ -363,12 +365,7 @@ enddo
 enddo !ends statistical loop
 !$OMP END PARALLEL DO
 
-errEmedio=sqrt(E2medio/Nrep-(Emedio/Nrep)**2)
-errMmedio=sqrt(M2medio/Nrep-(Mmedio/Nrep)**2)
-errCvmedio=sqrt(Cv2medio/Nrep-(Cvmedio/Nrep)**2)
-errChimedio=sqrt(Chi2medio/Nrep-(Chimedio/Nrep)**2)
-errGmedio=sqrt(G2medio/Nrep-(Gmedio/Nrep)**2)
-errBmedio=sqrt(B2medio/Nrep-(Bmedio/Nrep)**2)
+call system_clock(t2)
 
 Emedio=somma1E/Nrep
 E2medio=(somma1E**2)/Nrep
@@ -376,6 +373,12 @@ Mmedio=somma1M/Nrep
 M2medio=(somma1M**2)/Nrep
 M4medio=(somma1M**4)/Nrep
 
+errEmedio=sqrt(E2medio-(Emedio)**2)
+errMmedio=sqrt(M2medio-(Mmedio)**2)
+errCvmedio=sqrt(Cv2medio-(Cvmedio)**2)
+errChimedio=sqrt(Chi2medio-(Chimedio)**2)
+errGmedio=sqrt(G2medio-(Gmedio)**2)
+errBmedio=sqrt(B2medio-(Bmedio)**2)
 !Emedio=Emedio/Nrep
 !Mmedio=Mmedio/Nrep
 !Cvmedio=Cvmedio/Nrep
@@ -399,6 +402,7 @@ write(6,*) 'Cluster dimension  =',dimclumedio
 write(6,*)
 write(6,*) 'Mean energy        =',Emedio,errEmedio
 write(6,*) 'Magnetization      =',Mmedio,errMmedio
+write(6,*) 'Speedup            =',(real(t2-t1)/real(rate))
 !write(6,*) 'Specific heat      =',Cvmedio,errCvmedio
 !write(6,*) 'Susceptibility     =',Chimedio,errChimedio
 !write(6,*) 'Helicity modulus   =',Gmedio,errGmedio
