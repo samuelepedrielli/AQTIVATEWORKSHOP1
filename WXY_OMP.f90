@@ -251,6 +251,8 @@ do jj=1,Nrep !begin statistical loop
    do isite=1,N
     My=My+sin(iconf(isite))
     Mx=Mx+cos(iconf(isite))
+    M=sqrt(Mx**2+My**2)/N
+    sommaM=sommaM+M
     do nn=1,2
      en=0.0_rk
      ipsip=ivic(isite,nn)
@@ -258,10 +260,8 @@ do jj=1,Nrep !begin statistical loop
      E=E+en
     enddo
    enddo
-   M=sqrt(Mx**2+My**2)/N
    E=E/N
    sommaE=sommaE+E
-   sommaM=sommaM+M
  enddo !ends steps loop
 
  sommaE=sommaE/icount !this is the <E> for one simulation
