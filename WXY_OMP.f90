@@ -161,8 +161,8 @@ logical :: exist
 !read(40,*) temp
 !print*,temp
 
-L=16
-temp=.0
+L=63
+temp=5.0
 N=L**2
 Neq=1e4
 Niter=Neq
@@ -210,7 +210,7 @@ errMmedio=0.0_rk
 
 call system_clock(t1)
 
-!$OMP PARALLEL DO PRIVATE(jj,iconf,cid,cluster,seme,icount,sommaE,sommaM,E,en,Mx,My,M)
+!$OMP PARALLEL DO PRIVATE(jj,iconf,cid,cluster,seme,icount,sommaE,sommaM,E,en,M,Mx,My)
 do jj=1,Nrep !begin statistical loop
 ! print*,'------ Stat = ', jj,'------'
 
@@ -251,8 +251,6 @@ do jj=1,Nrep !begin statistical loop
    do isite=1,N
     My=My+sin(iconf(isite))
     Mx=Mx+cos(iconf(isite))
-    M=sqrt(Mx**2+My**2)/N
-    sommaM=sommaM+M
     do nn=1,2
      en=0.0_rk
      ipsip=ivic(isite,nn)
@@ -260,8 +258,10 @@ do jj=1,Nrep !begin statistical loop
      E=E+en
     enddo
    enddo
+   M=sqrt(Mx**2+My**2)/N
    E=E/N
    sommaE=sommaE+E
+   sommaM=sommaM+M
  enddo !ends steps loop
 
  sommaE=sommaE/icount !this is the <E> for one simulation
