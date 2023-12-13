@@ -98,52 +98,33 @@ real(kind=rk), dimension(:) :: iconf
 integer(kind=ik), dimension(:,:) :: ivic
 E=0.0_rk
 E2=0.0_rk
-do i=1,size(iconf)
+do i=1,N
  do nn=1,2
   k=ivic(i,nn)
   call ham(iconf(i),iconf(k),en)
   E=E+en
  enddo
 enddo
-E=E/size(iconf)
+E=E/N
 E2=E**2
 end subroutine computeE
 
-subroutine computeM(iconf,M,M2,M4)
+subroutine computeM(iconf,M,M2)
 implicit none
 integer(kind=ik) :: i
-real(kind=rk) :: M,M2,M4,Mx,My
+real(kind=rk) :: M,M2,Mx,My
 real(kind=rk), dimension(:) :: iconf
 Mx=0.0_rk
 My=0.0_rk
 M=0.0_rk
 M2=0.0_rk
-M4=0.0_rk
 do i=1,size(iconf)
  My=My+sin(iconf(i))
  Mx=Mx+cos(iconf(i))
 enddo
 M=sqrt(Mx**2+My**2)/size(iconf)
 M2=M**2
-M4=M**4
 end subroutine computeM
-
-subroutine computeS(iconf,ivic,S,S2)
-implicit none
-integer(kind=ik) :: i,k
-real(kind=rk) :: S,S2
-real(kind=rk), dimension(:) :: iconf
-integer(kind=ik), dimension(:,:) :: ivic
-S=0.0_rk
-S2=0.0_rk
-do i=1,size(iconf)
-  k=ivic(i,1)
-  S=S+sin(iconf(i)-iconf(k))
-enddo
-S=S/size(iconf)
-S=S**2 !S=s**2
-S2=S**2
-end subroutine computeS
 
 end module xymodule
 
@@ -174,34 +155,22 @@ real(kind=rk), dimension(:), allocatable :: cluster,iconf,initial
 character (len = 15) :: conf,phys,err,input
 logical :: exist
 
-call system_clock(count_rate=rate)
-call random_seed(sizer)
-allocate(seme(sizer))
-do i = 1,sizer
- seme(i) = i
-enddo
-call random_seed(get=seme)
-call random_seed(put=seme)
-
 !--------------------------------------------!
-
 !read(*,*) input
 !open(40, file=input)
 !read(40,*) temp
 !print*,temp
 
-L = 8
-temp = 2.0
+L=32
+temp=2.
 N=L**2
 Neq=1e4
 Niter=Neq
-Nskip = 100
-!temp = 2.
-Nrep = 10
-phys = "phys.txt"
-err = "err.txt"
+Nskip=100
+Nrep=10
+phys="phys.txt"
+err="err.txt"
 
-inquire(file=conf, exist=exist)
 inquire(file=phys, exist=exist)
   if (exist) then
     open(21, file=phys, status="old", position="append", action="write")
@@ -215,12 +184,16 @@ inquire(file=err, exist=exist)
     open(22, file=err, status="new", action="write")
   end if
 
-
 !--------------------------------------------!
+call system_clock(count_rate=rate)
+call random_seed(sizer)
+allocate(seme(sizer))
+
 allocate (iconf(N))
 allocate (ivic(N,4))
 allocate (cid(N))
 allocate (cluster(N))
+
 
 !print*,'------ XY MODEL ------'
 !print*,'------ Temp = ', temp,'------'
@@ -229,61 +202,40 @@ Emedio=0.0_rk !energy
 E2medio=0.0_rk
 Mmedio=0.0_rk !magnetization
 M2medio=0.0_rk
-M4medio=0.0_rk
-Cvmedio=0.0_rk !capacity
-Cv2medio=0.0_rk
-Chimedio=0.0_rk !susceptibility
-Chi2medio=0.0_rk
-Gmedio=0.0_rk !helicity modulus
-G2medio=0.0_rk
-Bmedio=0.0_rk !binder
-B2medio=0.0_rk
 dimclumedio=0.0_rk!cluster dimension
-
 errEmedio=0.0_rk
 errMmedio=0.0_rk
-errCvmedio=0.0_rk
-errChimedio=0.0_rk
-errGmedio=0.0_rk
-errBmedio=0.0_rk
 
 call system_clock(t1)
-!$OMP PARALLEL DO PRIVATE(jj,iconf,ivic,cid,cluster) REDUCTION(+:somma1E, somma1E2, somma1M, somma1M2, somma1M4, somma1S, somma1S2)
+
+!$OMP PARALLEL DO PRIVATE(jj,iconf,ivic,cid,cluster,seme,icount,sommaE,sommaE2,sommaM,sommaM2)
 do jj=1,Nrep !begin statistical loop
 ! print*,'------ Stat = ', jj,'------'
 
-call neighbors(ivic)
-do k=1,N !initialize the ordered configuration
- call random_number(r)!pick a random angle
- r=r*2*pi
- iconf(k)=r
-enddo
+ do i = 1,sizer
+  seme(i) = i+omp_get_thread_num()+1
+ enddo
+ call random_seed(get=seme)
+ call random_seed(put=seme)
 
- somma1E=0.0_rk !energy
- somma1E2=0.0_rk
+ print*, jj, 'seed:', seme
+ call neighbors(ivic)
 
- somma1M=0.0_rk !magnetization
- somma1M2=0.0_rk
- somma1M4=0.0_rk
+ do k=1,N !initialize the disordered configuration
+  call random_number(r)!pick a random angle
+  r=r*2*pi
+  iconf(k)=r
+ enddo
 
- somma1S=0.0_rk !helicity
- somma1S2=0.0_rk
-
+ sommaE=0.0_rk !energy
+ sommaE2=0.0_rk
+ sommaM=0.0_rk !magnetization
+ sommaM2=0.0_rk
  varE=0.0_rk
- errE=0.0_rk
  varM=0.0_rk
+ errE=0.0_rk
  errM=0.0_rk
-
- Cv=0.0_rk
- Cv2=0.0_rk
- Chi=0.0_rk
- Chi2=0.0_rk
- G=0.0_rk
- G2=0.0_rk
- B=0.0_rk
- B2=0.0_rk
-
- icount=0_ik
+ icount=0
 
  do j=1,Neq !equilibration loop
   call wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
@@ -296,104 +248,45 @@ enddo
   enddo
   call wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
   dimclumedio=dimclumedio+dimclu
-  dimclu2medio=dimclu2medio+dimclu**2
-  icount=icount+1_ik
+  icount=icount+1
   call computeE(iconf,ivic,E,E2)
-  somma1E=somma1E+E
-  somma1E2=somma1E2+E2
-  call computeM(iconf,M,M2,M4)
-  somma1M=somma1M+M
-  somma1M2=somma1M2+M2
-  somma1M4=somma1M4+M4
-  call computeS(iconf,ivic,S,S2)
-  somma1S=somma1S+S
-  somma1S2=somma1S2+S2
+  sommaE=sommaE+E
+  sommaE2=sommaE2+E2
+  call computeM(iconf,M,M2)!,M4)
+  sommaM=sommaM+M
+  sommaM2=sommaM2+M2
  enddo !ends steps loop
 
- varE=somma1E2/icount-(somma1E/icount)**2
+ varE=sommaE2/icount-(sommaE/icount)**2
  errE=sqrt(varE/Nrep)
-
-! Cv=N*varE/temp**2 !this is Cv for one configuration
-! Cv2=Cv**2
-
- varM=somma1M2/icount-(somma1M/icount)**2
+ varM=sommaM2/icount-(sommaM/icount)**2
  errM=sqrt(varM/Nrep)
+ sommaE=sommaE/icount !this is the <E> for one simulation
+ sommaE2=sommaE2/icount
+ sommaM=sommaM/icount !this is the <M> for one simulation
+ sommaM2=sommaM2/icount
 
-
- !Chi=N*varM/temp !this is Chi for one configuration
- !Chi2=Chi**2
-
- somma1E=somma1E/icount !this is the <E> for one simulation
- somma1E2=somma1E2/icount
-
- somma1M=somma1M/icount !this is the <M> for one simulation
- somma1M2=somma1M2/icount
- somma1M4=somma1M4/icount
- 
- !print*, jj, 'energy', somma1E, errE
- !print*, jj, 'mag', sommaM, errM
-
- somma1S=somma1S/icount !this is the <s2> for one simulation
- somma1S2=somma1S2/icount
-
- !G=-(sommaE/2.+N*sommaS/temp) !this is G for one simulation
- !G2=G**2
-
- !B=1.-sommaM4/(3.*sommaM2**2) !this is B for one simulation
- !B2=B**2
-
- !the following add the found quantities to the statistical average
- !Emedio=Emedio+sommaE
- !E2medio=E2medio+sommaE**2
-
- !Mmedio=Mmedio+sommaM
- !M2medio=M2medio+sommaM**2
- !M4medio=M4medio+sommaM**4
-
- !Cvmedio=Cvmedio+Cv
- !Cv2medio=Cv2medio+Cv2
-
- !Chimedio=Chimedio+Chi
- !Chi2medio=Chi2medio+Chi2
-
- !Gmedio=Gmedio+G
- !G2medio=G2medio+G2
-
- !Bmedio=Bmedio+B
- !B2medio=B2medio+B2
+ Emedio = Emedio + sommaE
+ E2medio = E2medio + sommaE2
+ Mmedio = Mmedio + sommaM
+ M2medio = M2medio + sommaM2
+print*, jj, sommaE, varE
 
 enddo !ends statistical loop
 !$OMP END PARALLEL DO
 
 call system_clock(t2)
 
-Emedio=somma1E/Nrep
-E2medio=(somma1E**2)/Nrep
-Mmedio=somma1M/Nrep
-M2medio=(somma1M**2)/Nrep
-M4medio=(somma1M**4)/Nrep
+errEmedio=sqrt(E2medio/Nrep-(Emedio/Nrep)**2)
+errMmedio=sqrt(M2medio/Nrep-(Mmedio/Nrep)**2)
 
-errEmedio=sqrt(E2medio-(Emedio)**2)
-errMmedio=sqrt(M2medio-(Mmedio)**2)
-errCvmedio=sqrt(Cv2medio-(Cvmedio)**2)
-errChimedio=sqrt(Chi2medio-(Chimedio)**2)
-errGmedio=sqrt(G2medio-(Gmedio)**2)
-errBmedio=sqrt(B2medio-(Bmedio)**2)
-!Emedio=Emedio/Nrep
-!Mmedio=Mmedio/Nrep
-!Cvmedio=Cvmedio/Nrep
-!Chimedio=Chimedio/Nrep
-!Gmedio=Gmedio/Nrep
-!Bmedio=Bmedio/Nrep
+Emedio=Emedio/Nrep
+Mmedio=Mmedio/Nrep
 
 dimclumedio=dimclumedio/(Nrep*Niter)
-dimclu2medio=dimclu2medio/(Nrep*Niter)
-vardimclu=dimclu2medio-dimclumedio**2
-errdimclu=sqrt(vardimclu/(Nrep*Niter*N))
 
-!write(21,*) temp,Emedio,Mmedio,Cvmedio,Chimedio,Gmedio,Bmedio
-write(21,*) temp,Emedio,Mmedio
-!write(22,*) temp,errEmedio,errMmedio,errCvmedio,errChimedio,errGmedio,errBmedio
+write(21,*) temp,Emedio,Mmedio !,Cvmedio,Chimedio,Gmedio,Bmedio
+write(22,*) temp,errEmedio,errMmedio !,errCvmedio,errChimedio,errGmedio,errBmedio
 
 write(6,*) 'Number of sites    =',N
 write(6,*) 'Temperature        =',temp
@@ -402,11 +295,7 @@ write(6,*) 'Cluster dimension  =',dimclumedio
 write(6,*)
 write(6,*) 'Mean energy        =',Emedio,errEmedio
 write(6,*) 'Magnetization      =',Mmedio,errMmedio
-write(6,*) 'Speedup            =',(real(t2-t1)/real(rate))
-!write(6,*) 'Specific heat      =',Cvmedio,errCvmedio
-!write(6,*) 'Susceptibility     =',Chimedio,errChimedio
-!write(6,*) 'Helicity modulus   =',Gmedio,errGmedio
-!write(6,*) 'Binder of M        =',Bmedio,errBmedio
+write(6,*) 'Execution time [s] =',real(t2-t1)/real(rate)
 
 close(21)
 close(22)
