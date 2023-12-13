@@ -189,17 +189,23 @@ call random_seed(put=seme)
 !print*,temp
 
 L = 8
-temp = 0.89
+temp = 0. !5.
 N=L**2
 Neq=10000
 Niter = 1e4
 Nskip = 100
 !temp = 2.
-Nrep = 5
+Nrep = 1
+conf = "conf.txt"
 phys = "phys.txt"
 err = "err.txt"
 
 inquire(file=conf, exist=exist)
+  if (exist) then
+    open(20, file=conf, status="old", position="append", action="write")
+  else
+    open(20, file=conf, status="new", action="write")
+  end if
 inquire(file=phys, exist=exist)
   if (exist) then
     open(21, file=phys, status="old", position="append", action="write")
@@ -283,6 +289,9 @@ enddo
 
  do j=1,Neq !equilibration loop
   call wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
+  !if (mod(j,100)==1) then
+  ! write(20,*) iconf '\n'
+  !end if
  enddo
 
  do ii=1,Niter !steps loop
@@ -379,6 +388,7 @@ dimclu2medio=dimclu2medio/(Nrep*Niter)
 vardimclu=dimclu2medio-dimclumedio**2
 errdimclu=sqrt(vardimclu/(Nrep*Niter*N))
 
+write(20,*) iconf
 write(21,*) temp,Emedio,Mmedio,Cvmedio,Chimedio,Gmedio,Bmedio
 write(22,*) temp,errEmedio,errMmedio,errCvmedio,errChimedio,errGmedio,errBmedio
 
@@ -394,6 +404,7 @@ write(6,*) 'Susceptibility     =',Chimedio,errChimedio
 write(6,*) 'Helicity modulus   =',Gmedio,errGmedio
 write(6,*) 'Binder of M        =',Bmedio,errBmedio
 
+close(20)
 close(21)
 close(22)
 
