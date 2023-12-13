@@ -1,4 +1,4 @@
-module xymodule
+Module xymodule
 implicit none
 integer, parameter :: rk=selected_real_kind(8)
 integer, parameter :: ik=selected_int_kind(8)
@@ -161,12 +161,12 @@ logical :: exist
 !read(40,*) temp
 !print*,temp
 
-L=63
+L=64
 temp=5.0
 N=L**2
-Neq=1e4
+Neq=5e3
 Niter=Neq
-Nskip=100
+Nskip=300
 Nrep=10
 phys="phys.txt"
 err="err.txt"
@@ -225,10 +225,10 @@ do jj=1,Nrep !begin statistical loop
   r=r*2*pi
   iconf(k)=r
  enddo
- 
 
- sommaE=0.0_rk !energy
- sommaM=0.0_rk !magnetization
+ !print*, omp_get_thread_num()
+
+ sommaE=0.0_rk !energy sommaM=0.0_rk !magnetization
  icount=0
 
  do j=1,Neq !equilibration loop
@@ -254,7 +254,11 @@ do jj=1,Nrep !begin statistical loop
     do nn=1,2
      en=0.0_rk
      ipsip=ivic(isite,nn)
-     call ham(iconf(isite),iconf(ipsip),en)
+     if ( (0 .le. iconf(isite)) .and. (iconf(isite) .le. 2*pi) .and. (0 .le. iconf(ipsip)) .and. (iconf(ipsip) .le. 2*pi) ) then
+      en=-cos(iconf(isite)-iconf(ipsip))
+     else
+      print*,"THESE ARE NOT ACCEPTABLE STATES: ",iconf(isite),iconf(ipsip)
+     endif
      E=E+en
     enddo
    enddo
@@ -307,4 +311,4 @@ deallocate(ivic)
 deallocate(cid)
 deallocate(cluster)
 
-end program xy
+end program xy                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
