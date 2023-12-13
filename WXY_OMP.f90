@@ -210,7 +210,7 @@ errMmedio=0.0_rk
 
 call system_clock(t1)
 
-!$OMP PARALLEL DO PRIVATE(jj,iconf,cid,cluster,seme,icount,sommaE,sommaM,E,en)
+!$OMP PARALLEL DO PRIVATE(jj,iconf,cid,cluster,seme,icount,sommaE,sommaM,E,en,Mx,My,M)
 do jj=1,Nrep !begin statistical loop
 ! print*,'------ Stat = ', jj,'------'
 
