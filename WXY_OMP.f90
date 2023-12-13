@@ -134,11 +134,11 @@ use omp_lib
 implicit none
 integer :: sizer
 integer(kind=ik) :: Nrep,Niter,Neq,Nskip,Ninit,Ntemp,icount,t1,t2,rate
-integer(kind=ik) :: i,ii,j,jj,k,kk
+integer(kind=ik) :: i,ii,j,jj,k,kk,isite,ipsip,nn
 integer(kind=ik) :: dimclu,dimclu2
 real(kind=rk) r,t_i,t_f
 real(kind=rk) acount,acc_rate
-real(kind=rk) :: E,E2,sommaE,sommaE2,Emedio,E2medio,varE,errE,somma1E,somma1E2
+real(kind=rk) :: E,E2,sommaE,sommaE2,Emedio,E2medio,varE,errE,somma1E,somma1E2,en,Mx,My
 real(kind=rk) :: M,M2,M4,sommaM,sommaM2,sommaM4,Mmedio,M2medio,M4medio,varM,errM,somma1M,somma1M2,somma1M4
 real(kind=rk) :: S,sommaS,S2,sommaS2,varS,errS,somma1S,somma1S2
 real(kind=rk) :: Cv,Cv2,Cvmedio,Cv2medio
@@ -161,8 +161,8 @@ logical :: exist
 !read(40,*) temp
 !print*,temp
 
-L=32
-temp=2.
+L=16
+temp=.0
 N=L**2
 Neq=1e4
 Niter=Neq
@@ -195,6 +195,8 @@ allocate (cid(N))
 allocate (cluster(N))
 
 
+call neighbors(ivic)
+
 !print*,'------ XY MODEL ------'
 !print*,'------ Temp = ', temp,'------'
 
@@ -208,7 +210,7 @@ errMmedio=0.0_rk
 
 call system_clock(t1)
 
-!$OMP PARALLEL DO PRIVATE(jj,iconf,ivic,cid,cluster,seme,icount,sommaE,sommaE2,sommaM,sommaM2)
+!$OMP PARALLEL DO PRIVATE(jj,iconf,cid,cluster,seme,icount,sommaE,sommaM,E,en)
 do jj=1,Nrep !begin statistical loop
 ! print*,'------ Stat = ', jj,'------'
 
@@ -218,23 +220,15 @@ do jj=1,Nrep !begin statistical loop
  call random_seed(get=seme)
  call random_seed(put=seme)
 
- print*, jj, 'seed:', seme
- call neighbors(ivic)
-
  do k=1,N !initialize the disordered configuration
   call random_number(r)!pick a random angle
   r=r*2*pi
   iconf(k)=r
  enddo
+ 
 
  sommaE=0.0_rk !energy
- sommaE2=0.0_rk
  sommaM=0.0_rk !magnetization
- sommaM2=0.0_rk
- varE=0.0_rk
- varM=0.0_rk
- errE=0.0_rk
- errM=0.0_rk
  icount=0
 
  do j=1,Neq !equilibration loop
@@ -242,35 +236,42 @@ do jj=1,Nrep !begin statistical loop
  enddo
 
  do ii=1,Niter !steps loop
- ! if (mod(ii,50)==1_ik) print*,ii 
+  E=0.0_rk
+  Mx=0.0_rk
+  My=0.0_rk
+  M=0.0_rk
+  !if (mod(ii,50)==1_ik) print*,ii
   do j=1,Nskip !decorrelation loop
    call wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
   enddo
   call wolffmove(iconf,ivic,temp,cid,cluster,dimclu)
   dimclumedio=dimclumedio+dimclu
   icount=icount+1
-  call computeE(iconf,ivic,E,E2)
-  sommaE=sommaE+E
-  sommaE2=sommaE2+E2
-  call computeM(iconf,M,M2)!,M4)
-  sommaM=sommaM+M
-  sommaM2=sommaM2+M2
+    ! COMPUTE ENERGY AND MAGNETIZATION
+   do isite=1,N
+    My=My+sin(iconf(isite))
+    Mx=Mx+cos(iconf(isite))
+    do nn=1,2
+     en=0.0_rk
+     ipsip=ivic(isite,nn)
+     call ham(iconf(isite),iconf(ipsip),en)
+     E=E+en
+    enddo
+   enddo
+   M=sqrt(Mx**2+My**2)/N
+   E=E/N
+   sommaE=sommaE+E
+   sommaM=sommaM+M
  enddo !ends steps loop
 
- varE=sommaE2/icount-(sommaE/icount)**2
- errE=sqrt(varE/Nrep)
- varM=sommaM2/icount-(sommaM/icount)**2
- errM=sqrt(varM/Nrep)
  sommaE=sommaE/icount !this is the <E> for one simulation
- sommaE2=sommaE2/icount
  sommaM=sommaM/icount !this is the <M> for one simulation
- sommaM2=sommaM2/icount
 
  Emedio = Emedio + sommaE
- E2medio = E2medio + sommaE2
+ E2medio = E2medio + sommaE**2
  Mmedio = Mmedio + sommaM
- M2medio = M2medio + sommaM2
-print*, jj, sommaE, varE
+ M2medio = M2medio + sommaM**2
+print*, jj, sommaE
 
 enddo !ends statistical loop
 !$OMP END PARALLEL DO
